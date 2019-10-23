@@ -1,0 +1,14 @@
+Multi-Document Summarization is used for computing a summary for a set of
+related articles such that they give the user a general view about the events. Hindi
+Multi-Document Summarization deals with computing a summary for a set of related hindi articles . The main objective is that the sentences should cover the different events in the documents with the information covered in as few sentences as
+possible. Latent Dirichlet Allocation(LDA) break down the given documents into
+different topics or events. Singular Value Decomposition(SVD) is used to get the
+orthogonal representations of vectors and representing sentences as vectors, we get
+the sentences that are orthogonal to each other in the LDA mixture model weighted
+term domain. Because to reduce the common information content the sentences of
+the summary need to be orthogonal to each other since orthogonal vectors have the
+lowest possible similarity and correlation between them. Thus using LDA we find
+the different topics in the documents and using SVD we find the sentences that best
+represent these topics. Sentences to select depend on the scores gained by the sentences. Higher the scores of sentences, greater are the chances that they would be
+picked up in a summary. These scores are calculated on the basis of feature extraction for each sentence. Finally we evaluate the obtained summary of sentences.
+Keywords: Multi-Document Summarization,LDA,SVD,Sentence Extraction.
