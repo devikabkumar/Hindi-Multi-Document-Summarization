@@ -1,0 +1,159 @@
+from nltk.corpus import stopwords
+from gensim import corpora, models
+import numpy as np
+from nltk.tokenize import sent_tokenize,word_tokenize
+import gensim
+import codecs
+
+class Document:
+    def __init__(self, name, doc_dist, topic_dist, word_dist):
+        self.name = name
+        self.doc_dist = doc_dist
+        self.topic_dist = topic_dist
+        self.word_dist = word_dist
+        pass
+
+    def get_name(self):
+        return self.name
+
+    def get_doc_dist(self):
+        return self.doc_dist
+
+    def get_topic_dist(self):
+        return self.topic_dist
+
+    def get_word_dist(self):
+        return self.word_dist
+
+
+class LDA:
+    def __init__(self, filenames, topics, words):
+        self.K = topics
+        self.words = words
+        self.filenames = filenames
+        self.stop_words = set(stopwords.words('hindi.txt'))
+        
+        pass
+
+    def read_file(self, fname):
+        f = codecs.open(fname,encoding='utf-16')
+        return "".join(f.readlines())
+
+    def read_files(self):
+        contents = {}
+        for filename in self.filenames:
+            contents[filename] = self.read_file(filename)
+        return contents
+        
+    def generate_stem_words(self,word):
+        suffixes = {
+    1: [u"ो",u"े",u"ू",u"ु",u"ी",u"ि",u"ा"],
+    2: [u"कर",u"ाओ",u"िए",u"ाई",u"ाए",u"ने",u"नी",u"ना",u"ते",u"ीं",u"ती",u"ता",u"ाँ",u"ां",u"ों",u"ें"],
+    3: [u"ाकर",u"ाइए",u"ाईं",u"ाया",u"ेगी",u"ेगा",u"ोगी",u"ोगे",u"ाने",u"ाना",u"ाते",u"ाती",u"ाता",u"तीं",u"ाओं",u"ाएं",u"ुओं",u"ुएं",u"ुआं"],
+    4: [u"ाएगी",u"ाएगा",u"ाओगी",u"ाओगे",u"एंगी",u"ेंगी",u"एंगे",u"ेंगे",u"ूंगी",u"ूंगा",u"ातीं",u"नाओं",u"नाएं",u"ताओं",u"ताएं",u"ियाँ",u"ियों",u"ियां"],
+    5: [u"ाएंगी",u"ाएंगे",u"ाऊंगी",u"ाऊंगा",u"ाइयाँ",u"ाइयों",u"ाइयां"],
+}
+        for L in 5, 4, 3, 2, 1:
+            if len(word) > L + 1:
+                for suf in suffixes[L]:
+					#print type(suf),type(word),word,suf
+                    if word.endswith(suf):
+						#print 'h'
+                        return word[:-L]
+        return word
+    
+        
+            
+    
+    def get_doc_topics(self, lda, bow):
+        gamma, _ = lda.inference([bow])
+        topic_dist = gamma[0] / sum(gamma[0])  # normalize distribution
+        return [(topicid, topicvalue) for topicid, topicvalue in enumerate(topic_dist)]
+
+    def perform_lda(self):
+        res = []
+        data = self.read_files()
+        for k,v in data.items():
+            texts = []
+            sentences=v.split(u"।")
+            tokenses=[]
+            for each in sentences:
+                word_list=each.split(' ')
+                tokenses=tokenses+word_list
+            tokens = [w for w in tokenses if not w in self.stop_words]
+            jn = [self.generate_stem_words(to) for to in tokens]
+
+            texts.append(jn)
+                
+                
+		
+            #tokens = self.tokenizer.tokenize(v.lower())
+            
+        
+            
+            dictionary = corpora.Dictionary(texts)
+            corpus = [dictionary.doc2bow(text) for text in texts]
+            ldamodel = gensim.models.ldamodel.LdaModel(corpus, num_topics=self.K, id2word=dictionary, passes=20)
+            topic_dist = self.get_doc_topics(ldamodel, corpus[0])
+            word_dist = ldamodel.show_topics(num_topics=self.K, num_words=self.words, formatted=False)
+            doc_dist = ldamodel[corpus[0]]
+            d = Document(k, doc_dist, topic_dist, word_dist)
+            res.append(d)
+            
+        return res    
+
+    
+if __name__=="__main__":    
+
+
+    filenames=["article1.txt","article2.txt"]
+    K = 2
+    words = 20
+    lda = LDA(filenames, K, words)
+    contents = lda.read_files()
+    lda_res = lda.perform_lda()
+    A = np.zeros((K, words, words))
+    V = []
+    
+    for j in range(K):
+        k = 0
+        for d in filenames:
+            D = contents[d].lower()
+            sentences=D.split(u"।")
+            Rd = len(sentences)
+            print(d,Rd)
+            print("/n")
+            res = lda_res[filenames.index(d)]
+            word_dist = res.get_word_dist()[j][1]
+            print(word_dist)
+            print("\n")
+            topic_dist = res.get_topic_dist()[j][1]
+            print (topic_dist)
+            print("\n")
+            doc_dist = res.get_doc_dist()[0][1]
+            print (doc_dist)
+            print("\n")
+         
+        for r in range(Rd):
+            for i in range(words):
+                if word_dist[i][0] in sentences[r]:
+                    try:
+                      A[j][i][k]=word_dist[i][1] * topic_dist * doc_dist
+                    except IndexError:
+                        pass
+            k += 1
+    P, D, Q = np.linalg.svd(A[j], full_matrices=False)
+    V.append(D)
+    
+sv_threshold= 0.5
+min_sig_value = max(D) * sv_threshold
+D[D < min_sig_value] = 0
+salience_score = np.sqrt(np.dot(np.square(D),np.square(Q)))
+print(np.round(salience_score,2))
+num_sent = 5
+top_sentences= salience_score.argsort()[-num_sent:][::1]
+top_sentences.sort()
+print(top_sentences)
+for i in top_sentences:
+          print(sentences[i])
+          print("\n")
